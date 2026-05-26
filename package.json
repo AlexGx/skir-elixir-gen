@@ -1,14 +1,14 @@
 {
-  "name": "skir-gleam-gen",
-  "version": "0.1.2",
+  "name": "skir-elixir-gen",
+  "version": "0.0.1",
   "description": "",
   "keywords": [],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gepheum/skir-gleam-gen.git"
+    "url": "git+https://github.com/AlexGx/skir-elixir-gen.git"
   },
   "license": "ISC",
-  "author": "Tyler Fibonacci <gepheum@gmail.com>",
+  "author": "Alex Gubarev <gubarev.alex@gmail.com>",
   "type": "module",
   "exports": {
     ".": {
