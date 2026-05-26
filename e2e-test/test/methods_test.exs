@@ -1,4 +1,4 @@
-defmodule SkirOut.MethodsTest do
+defmodule MethodsTest do
   @moduledoc """
   Port of the Gleam `methods.gleam` test.
 

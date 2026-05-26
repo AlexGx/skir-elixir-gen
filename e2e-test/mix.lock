@@ -1,4 +1,5 @@
 %{
   "dep_from_git": {:git, "https://github.com/AlexGx/ex_skir.git", "8c4c04e086c093240d461a865b5581f32fcbcd8f", []},
-  "ex_skir": {:git, "https://github.com/AlexGx/ex_skir.git", "f8da9968fab0fce2f4134cbeadac059facada334", []},
+  "ex_skir": {:git, "https://github.com/AlexGx/ex_skir.git", "1eee90bf9053a1136ee06ffcda19775cf2f8adb6", []},
+  "jason": {:hex, :jason, "1.4.5", "2e3a008590b0b8d7388c20293e9dcc9cf3e5d642fd2a114e4cbbb52e595d940a", [:mix], [{:decimal, "~> 1.0 or ~> 2.0 or ~> 3.0", [hex: :decimal, repo: "hexpm", optional: true]}], "hexpm", "b0c823996102bcd0239b3c2444eb00409b72f6a140c1950bc8b457d836b30684"},
 }
