@@ -98,8 +98,16 @@ class ElixirFileGenerator {
   }
 
   private emitStruct(loc: RecordLocation): string {
-    const moduleName = getModuleName(loc, this.namespace);
+    // 1. Convert module path string (e.g. "auth/session" or "billing") into Elixir Module parts
+    const pathPrefix = this.derivePathPrefix(loc.modulePath);
+    const customizedNamespace = pathPrefix 
+      ? `${this.namespace}.${pathPrefix}` 
+      : this.namespace;
+
+    // 2. Use the customized nested namespace here
+    const moduleName = getModuleName(loc, customizedNamespace);
     const { record } = loc;
+    
     const lines: string[] = [
       `defmodule ${moduleName} do`,
       this.moduleDocFalse(),
@@ -111,7 +119,11 @@ class ElixirFileGenerator {
       useOpts.push(`id: ${formatIntWithSeparators(record.recordNumber)}`);
     }
     useOpts.push(`module_path: ${JSON.stringify(loc.modulePath)}`);
-    useOpts.push(`qualified_name: ${JSON.stringify(this.qualifiedName(loc))}`);
+
+    const qName = this.qualifiedName(loc);
+    if (qName !== record.name.text) {
+      useOpts.push(`qualified_name: ${JSON.stringify(qName)}`);
+    }
 
     const structDoc = this.docText(record.doc);
     if (structDoc) {
@@ -156,9 +168,15 @@ class ElixirFileGenerator {
     return lines.join("\n");
   }
 
-  private emitEnum(loc: RecordLocation): string {
-    const moduleName = getModuleName(loc, this.namespace);
+private emitEnum(loc: RecordLocation): string {
+    const pathPrefix = this.derivePathPrefix(loc.modulePath);
+    const customizedNamespace = pathPrefix 
+      ? `${this.namespace}.${pathPrefix}` 
+      : this.namespace;
+
+    const moduleName = getModuleName(loc, customizedNamespace);
     const { record } = loc;
+    
     const lines: string[] = [
       `defmodule ${moduleName} do`,
       this.moduleDocFalse(),
@@ -170,7 +188,12 @@ class ElixirFileGenerator {
       useOpts.push(`id: ${formatIntWithSeparators(record.recordNumber)}`);
     }
     useOpts.push(`module_path: ${JSON.stringify(loc.modulePath)}`);
-    useOpts.push(`qualified_name: ${JSON.stringify(this.qualifiedName(loc))}`);
+
+    // Only add qualified_name if it differs from the base record name
+    const qName = this.qualifiedName(loc);
+    if (qName !== record.name.text) {
+      useOpts.push(`qualified_name: ${JSON.stringify(qName)}`);
+    }
 
     const enumDoc = this.docText(record.doc);
     if (enumDoc) {
@@ -460,6 +483,45 @@ class ElixirFileGenerator {
 
   private qualifiedName(loc: RecordLocation): string {
     return loc.recordAncestors.map((r) => r.name.text).join(".");
+  }
+
+  /**
+   * Translates "auth/internal_user.skir" -> "Auth.InternalUser"
+   */
+  private derivePathPrefix(modulePath: string): string {
+    // 1. Remove file extensions if present (.skir or .ex)
+    let cleanPath = modulePath;
+    if (cleanPath.endsWith(".skir")) {
+      cleanPath = cleanPath.slice(0, -5);
+    } else if (cleanPath.endsWith(".ex")) {
+      cleanPath = cleanPath.slice(0, -3);
+    }
+
+    // 2. Remove any leading dots/slashes (e.g. "../" or "./")
+    cleanPath = cleanPath.replace(/^[\./]+/, "");
+
+    // 3. Split the path into individual folder routing segments
+    const segments = cleanPath.split("/").filter(Boolean);
+
+    return segments
+      .map((segment) => {
+        // Remove characters like '@' that break Elixir identifiers
+        let sanitized = segment.replace(/[^a-zA-Z0-9_\-]/g, "");
+
+        // If a segment starts with a number after stripping symbols, prefix it
+        if (/^\d/.test(sanitized)) {
+          sanitized = "Mod" + sanitized;
+        }
+
+        // Split by both underscores AND hyphens to normalize case mapping
+        // e.g. "skir-fantasy" or "game_example"
+        const words = sanitized.split(/[_\-]/).filter(Boolean);
+
+        return words
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join("");
+      })
+      .join(".");
   }
 }
 

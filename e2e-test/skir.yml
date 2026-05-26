@@ -1,6 +1,6 @@
 generators:
   - mod: ../../../dist/index.js
-    outDir: ./src/skirout
+    outDir: ./lib/skirout
     config: {}
 
 dependencies:

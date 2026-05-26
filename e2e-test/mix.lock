@@ -1,0 +1,4 @@
+%{
+  "dep_from_git": {:git, "https://github.com/AlexGx/ex_skir.git", "8c4c04e086c093240d461a865b5581f32fcbcd8f", []},
+  "ex_skir": {:git, "https://github.com/AlexGx/ex_skir.git", "f8da9968fab0fce2f4134cbeadac059facada334", []},
+}
