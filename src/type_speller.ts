@@ -1,77 +1,83 @@
-import {
-  type RecordKey,
-  type RecordLocation,
-  type ResolvedType,
-} from "skir-internal";
-import { getModuleName, toFieldName } from "./naming.js";
+import { type RecordKey, type RecordLocation, type ResolvedType } from "skir-internal";
 
-/**
- * Translates a resolved Skir type into the Elixir DSL type expression used by
- * `field`, `variant wraps:`, `method request:/response:`, and `defconst`.
- */
 export class TypeSpeller {
   constructor(
     private readonly recordMap: ReadonlyMap<RecordKey, RecordLocation>,
-    private readonly namespace: string,
+    private readonly baseNamespace: string,
   ) {}
 
-  /** Returns the Elixir DSL type expression for a resolved type. */
-  spell(type: ResolvedType): string {
+  public spell(type: ResolvedType): string {
     switch (type.kind) {
       case "primitive":
         return `:${type.primitive}`;
-
+      
+      case "optional":
+        return `{:optional, ${this.spell(type.other)}}`;
+      
+      case "array":
+        return `{:array, ${this.spell(type.item)}}`;
+      
       case "record": {
         const loc = this.recordMap.get(type.key);
         if (!loc) {
-          throw new Error(
-            `Skir Compilation Error: Record definition not found for key '${String(type.key)}'. Ensure it is imported or registered.`,
-          );
+          return ":unknown";
         }
-        return getModuleName(loc, this.namespace);
-      }
 
-      case "array": {
-        const itemExpr = this.spell(type.item);
-        if (type.key?.path) {
-          const keyExpr = this.spellKeyPath(type.key.path);
-          return `{:array, ${itemExpr}, key: ${keyExpr}}`;
+        // 1. Trace the destination path from the targeted record location
+        const pathPrefix = this.derivePathPrefix(loc.modulePath);
+        let targetNamespace = pathPrefix 
+          ? `${this.baseNamespace}.${pathPrefix}` 
+          : this.baseNamespace;
+
+        // 2. Strip base utility filename suffix segments if present
+        if (targetNamespace.endsWith(".Structs")) {
+          targetNamespace = targetNamespace.slice(0, -8);
+        } else if (targetNamespace.endsWith(".Enums")) {
+          targetNamespace = targetNamespace.slice(0, -6);
         }
-        return `{:array, ${itemExpr}}`;
-      }
 
-      case "optional": {
-        // Semantic renaming via destructuring for clarity
-        const { other: innerType } = type;
-        return `{:optional, ${this.spell(innerType)}}`;
+        // 3. Map the nested structural ancestors chain 
+        const recordParts = loc.recordAncestors.map((r) => r.name.text);
+        if (!recordParts.includes(loc.record.name.text)) {
+          recordParts.push(loc.record.name.text);
+        }
+        
+        // 4. Combine into the absolute Elixir module identifier path
+        return `${targetNamespace}.${recordParts.join(".")}`;
       }
-
-      default: {
-        // Runtime exhaustiveness guarantee
-        const unknownType: never = type;
-        throw new Error(
-          `Unsupported Skir type kind: ${JSON.stringify(unknownType)}`,
-        );
-      }
+      
+      default:
+        return ":unknown";
     }
   }
 
   /**
-   * Renders the key path of a keyed array.
+   * Identical path sanitization logic to keep module targets aligned
    */
-  private spellKeyPath(
-    path: ReadonlyArray<{ readonly name: { readonly text: string } }>,
-  ): string {
-    const len = path.length;
-
-    if (len === 0) return "[]";
-
-    // Avoid mapping an array if there's only one segment
-    if (len === 1) {
-      return `:${toFieldName(path[0]!.name.text)}`;
+  private derivePathPrefix(modulePath: string): string {
+    let cleanPath = modulePath;
+    if (cleanPath.endsWith(".skir")) {
+      cleanPath = cleanPath.slice(0, -5);
+    } else if (cleanPath.endsWith(".ex")) {
+      cleanPath = cleanPath.slice(0, -3);
     }
 
-    const atoms = path.map((item) => `:${toFieldName(item.name.text)}`);
-    return `[${atoms.join(", ")}]`;
+    cleanPath = cleanPath.replace(/^[\./]+/, "");
+    const segments = cleanPath.split("/").filter(Boolean);
+
+    return segments
+      .map((segment) => {
+        let sanitized = segment.replace(/[^a-zA-Z0-9_\-]/g, "");
+
+        if (/^\d/.test(sanitized)) {
+          sanitized = "Mod" + sanitized;
+        }
+
+        const words = sanitized.split(/[_\-]/).filter(Boolean);
+        return words
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join("");
+      })
+      .join(".");
   }
 }

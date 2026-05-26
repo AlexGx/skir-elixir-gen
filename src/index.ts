@@ -36,7 +36,6 @@ class ElixirGenerator implements CodeGenerator<Config> {
     const speller = new TypeSpeller(input.recordMap, namespace);
     const files: CodeGenerator.OutputFile[] = [];
 
-    // Re-use a single instance of the generator across all file iterations
     const gen = new ElixirFileGenerator(speller, namespace, input.recordMap);
 
     for (const module of input.modules) {
@@ -54,7 +53,7 @@ class ElixirGenerator implements CodeGenerator<Config> {
 
       files.push({
         path: getOutputPath(module.path),
-        code: gen.generate(records, constants, methods),
+        code: gen.generate(records, constants, methods, module.path),
       });
     }
 
@@ -73,6 +72,7 @@ class ElixirFileGenerator {
     records: readonly RecordLocation[],
     constants: readonly Constant<false>[],
     methods: readonly Method<false>[],
+    modulePath: string,
   ): string {
     const parts: string[] = [];
 
@@ -85,11 +85,11 @@ class ElixirFileGenerator {
     }
 
     if (constants.length > 0) {
-      parts.push(this.emitConstants(constants));
+      parts.push(this.emitConstants(constants, modulePath));
     }
 
     if (methods.length > 0) {
-      parts.push(this.emitMethods(methods));
+      parts.push(this.emitMethods(methods, modulePath));
     }
 
     const banner =
@@ -98,13 +98,16 @@ class ElixirFileGenerator {
   }
 
   private emitStruct(loc: RecordLocation): string {
-    // 1. Convert module path string (e.g. "auth/session" or "billing") into Elixir Module parts
     const pathPrefix = this.derivePathPrefix(loc.modulePath);
-    const customizedNamespace = pathPrefix 
+    let customizedNamespace = pathPrefix 
       ? `${this.namespace}.${pathPrefix}` 
       : this.namespace;
 
-    // 2. Use the customized nested namespace here
+    // FIX: If the file is a root-level "structs.skir", drop the ".Structs" nesting segment
+    if (customizedNamespace.endsWith(".Structs")) {
+      customizedNamespace = customizedNamespace.slice(0, -8);
+    }
+
     const moduleName = getModuleName(loc, customizedNamespace);
     const { record } = loc;
     
@@ -120,8 +123,12 @@ class ElixirFileGenerator {
     }
     useOpts.push(`module_path: ${JSON.stringify(loc.modulePath)}`);
 
+    // const qName = this.qualifiedName(loc);
+    // if (qName !== record.name.text) {
+    //   useOpts.push(`qualified_name: ${JSON.stringify(qName)}`);
+    // }
     const qName = this.qualifiedName(loc);
-    if (qName !== record.name.text) {
+    if (!moduleName.endsWith(`.${qName}`)) {
       useOpts.push(`qualified_name: ${JSON.stringify(qName)}`);
     }
 
@@ -168,11 +175,16 @@ class ElixirFileGenerator {
     return lines.join("\n");
   }
 
-private emitEnum(loc: RecordLocation): string {
+  private emitEnum(loc: RecordLocation): string {
     const pathPrefix = this.derivePathPrefix(loc.modulePath);
-    const customizedNamespace = pathPrefix 
+    let customizedNamespace = pathPrefix 
       ? `${this.namespace}.${pathPrefix}` 
       : this.namespace;
+
+    // FIX: If the file is a root-level "enums.skir", drop the ".Enums" nesting segment
+    if (customizedNamespace.endsWith(".Enums")) {
+      customizedNamespace = customizedNamespace.slice(0, -6);
+    }
 
     const moduleName = getModuleName(loc, customizedNamespace);
     const { record } = loc;
@@ -189,9 +201,12 @@ private emitEnum(loc: RecordLocation): string {
     }
     useOpts.push(`module_path: ${JSON.stringify(loc.modulePath)}`);
 
-    // Only add qualified_name if it differs from the base record name
+    // const qName = this.qualifiedName(loc);
+    // if (qName !== record.name.text) {
+    //   useOpts.push(`qualified_name: ${JSON.stringify(qName)}`);
+    // }
     const qName = this.qualifiedName(loc);
-    if (qName !== record.name.text) {
+    if (!moduleName.endsWith(`.${qName}`)) {
       useOpts.push(`qualified_name: ${JSON.stringify(qName)}`);
     }
 
@@ -232,9 +247,20 @@ private emitEnum(loc: RecordLocation): string {
     return lines.join("\n");
   }
 
-  private emitConstants(constants: readonly Constant<false>[]): string {
+  private emitConstants(constants: readonly Constant<false>[], modulePath: string): string {
+    const pathPrefix = this.derivePathPrefix(modulePath);
+    let customizedNamespace = pathPrefix 
+      ? `${this.namespace}.${pathPrefix}` 
+      : this.namespace;
+
+    // Standardize root-level assets so "constants.skir" uses SkirOut.Constants,
+    // while "game.skir" constants use SkirOut.Game.Constants to prevent collisions.
+    if (customizedNamespace.endsWith(".Constants")) {
+      customizedNamespace = customizedNamespace.slice(0, -10);
+    }
+
     const lines: string[] = [
-      `defmodule ${this.namespace}.Constants do`,
+      `defmodule ${customizedNamespace}.Constants do`,
       this.moduleDocFalse(),
       "  use Skir.Constants",
       "",
@@ -257,9 +283,18 @@ private emitEnum(loc: RecordLocation): string {
     return lines.join("\n");
   }
 
-  private emitMethods(methods: readonly Method<false>[]): string {
+  private emitMethods(methods: readonly Method<false>[], modulePath: string): string {
+    const pathPrefix = this.derivePathPrefix(modulePath);
+    let customizedNamespace = pathPrefix 
+      ? `${this.namespace}.${pathPrefix}` 
+      : this.namespace;
+
+    if (customizedNamespace.endsWith(".Methods")) {
+      customizedNamespace = customizedNamespace.slice(0, -8);
+    }
+
     const lines: string[] = [
-      `defmodule ${this.namespace}.Methods do`,
+      `defmodule ${customizedNamespace}.Methods do`,
       this.moduleDocFalse(),
       "  use Skir.Methods",
       "",
@@ -384,12 +419,18 @@ private emitEnum(loc: RecordLocation): string {
   }
 
   private structExpr(value: Value, loc: RecordLocation): string {
-    if (value.kind !== "object")
-      return `%${getModuleName(loc, this.namespace)}{}`;
+    const pathPrefix = this.derivePathPrefix(loc.modulePath);
+    const targetNamespace = pathPrefix 
+      ? `${this.namespace}.${pathPrefix}` 
+      : this.namespace;
 
-    const moduleName = getModuleName(loc, this.namespace);
+    const moduleName = getModuleName(loc, targetNamespace);
+
+    if (value.kind !== "object") {
+      return `%${moduleName}{}`;
+    }
+
     const parts: string[] = [];
-
     for (const field of loc.record.fields) {
       if (!field.type) continue;
       const entry = value.entries[field.name.text];
@@ -403,7 +444,28 @@ private emitEnum(loc: RecordLocation): string {
       : `%${moduleName}{${parts.join(", ")}}`;
   }
 
-  private enumExpr(value: Value, loc: RecordLocation): string {
+private enumExpr(value: Value, loc: RecordLocation): string {
+    // 1. Trace the destination path from the targeted record location
+    const pathPrefix = this.derivePathPrefix(loc.modulePath);
+    let targetNamespace = pathPrefix 
+      ? `${this.namespace}.${pathPrefix}` 
+      : this.namespace;
+
+    // 2. Strip base utility filename suffix segments if present
+    if (targetNamespace.endsWith(".Structs")) {
+      targetNamespace = targetNamespace.slice(0, -8);
+    } else if (targetNamespace.endsWith(".Enums")) {
+      targetNamespace = targetNamespace.slice(0, -6);
+    }
+
+    // 3. Extract the clean ancestors string to build the accurate module identifier
+    const recordParts = loc.recordAncestors.map((r) => r.name.text);
+    if (!recordParts.includes(loc.record.name.text)) {
+      recordParts.push(loc.record.name.text);
+    }
+    const moduleName = `${targetNamespace}.${recordParts.join(".")}`;
+
+    // 4. Evaluate value variants safely against the accurate moduleName identifier
     if (value.kind === "literal") {
       const vt = value.type;
       return vt && vt.kind === "enum"
@@ -444,7 +506,6 @@ private emitEnum(loc: RecordLocation): string {
     if (opts.length === 0) return `  use ${macroName}`;
     if (opts.length === 1) return `  use ${macroName}, ${opts[0]}`;
 
-    // Indent all options except the last one with a trailing comma
     const indentedOpts = opts.map((opt, index) => {
       const isLast = index === opts.length - 1;
       return `    ${opt}${isLast ? "" : ","}`;
@@ -485,11 +546,7 @@ private emitEnum(loc: RecordLocation): string {
     return loc.recordAncestors.map((r) => r.name.text).join(".");
   }
 
-  /**
-   * Translates "auth/internal_user.skir" -> "Auth.InternalUser"
-   */
   private derivePathPrefix(modulePath: string): string {
-    // 1. Remove file extensions if present (.skir or .ex)
     let cleanPath = modulePath;
     if (cleanPath.endsWith(".skir")) {
       cleanPath = cleanPath.slice(0, -5);
@@ -497,26 +554,18 @@ private emitEnum(loc: RecordLocation): string {
       cleanPath = cleanPath.slice(0, -3);
     }
 
-    // 2. Remove any leading dots/slashes (e.g. "../" or "./")
     cleanPath = cleanPath.replace(/^[\./]+/, "");
-
-    // 3. Split the path into individual folder routing segments
     const segments = cleanPath.split("/").filter(Boolean);
 
     return segments
       .map((segment) => {
-        // Remove characters like '@' that break Elixir identifiers
         let sanitized = segment.replace(/[^a-zA-Z0-9_\-]/g, "");
 
-        // If a segment starts with a number after stripping symbols, prefix it
         if (/^\d/.test(sanitized)) {
           sanitized = "Mod" + sanitized;
         }
 
-        // Split by both underscores AND hyphens to normalize case mapping
-        // e.g. "skir-fantasy" or "game_example"
         const words = sanitized.split(/[_\-]/).filter(Boolean);
-
         return words
           .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
           .join("");
