@@ -47,3 +47,14 @@ const LARGE_INT64: int64 = 9223372036854775807;
 const B: bool = false;
 
 const PI: float64 = 3.141592653589793;
+
+enum FreakDay {
+  monday;
+  tuesday;
+  wednesday;
+  thursday;
+  friday;
+  saturday;
+  /// Fun day
+  sunday;
+}

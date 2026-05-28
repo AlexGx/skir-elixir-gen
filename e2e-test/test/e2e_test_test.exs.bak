@@ -1,8 +1,0 @@
-defmodule E2eTestTest do
-  use ExUnit.Case
-  doctest E2ETest
-
-  test "greets the world" do
-    assert E2eTest.hello() == :world
-  end
-end

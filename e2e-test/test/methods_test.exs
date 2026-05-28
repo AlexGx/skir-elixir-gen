@@ -3,14 +3,16 @@ defmodule MethodsTest do
   Port of the Gleam `methods.gleam` test.
 
   Adapted to the `Skir.Methods` API:
-    * The accessor is `<snake_name>_method/0` (e.g. `my_procedure_method/0`).
+    * The accessor is `<snake_name>/0` (e.g. `my_procedure/0`).
     * The `%Skir.Method{}` `:name` field is the PascalCase wire name
       (`"MyProcedure"`), produced by `Macro.camelize/1` from the declared atom.
     * A method declared `:true_` (the reserved word `true` gets a trailing
       underscore from the generator) still produces wire name `"True"` and
-      accessor `true__method/0` (double underscore: `true_` + `_method`).
+      accessor `true_/0`.
   """
   use ExUnit.Case, async: true
+
+  alias SkirOut.Methods
 
   # =====================================================================
   # my_procedure
@@ -18,15 +20,15 @@ defmodule MethodsTest do
 
   describe "my_procedure_method" do
     test "name is PascalCase wire name" do
-      assert SkirOut.Methods.my_procedure_method().name == "MyProcedure"
+      assert Methods.my_procedure().name == "MyProcedure"
     end
 
     test "number" do
-      assert SkirOut.Methods.my_procedure_method().number == 674_706_602
+      assert Methods.my_procedure().number == 674_706_602
     end
 
     test "doc" do
-      assert SkirOut.Methods.my_procedure_method().doc == "My procedure"
+      assert Methods.my_procedure().doc == "My procedure"
     end
   end
 
@@ -36,16 +38,15 @@ defmodule MethodsTest do
 
   describe "with_explicit_number_method" do
     test "name" do
-      assert SkirOut.Methods.with_explicit_number_method().name ==
-               "WithExplicitNumber"
+      assert Methods.with_explicit_number().name == "WithExplicitNumber"
     end
 
     test "number" do
-      assert SkirOut.Methods.with_explicit_number_method().number == 3
+      assert Methods.with_explicit_number().number == 3
     end
 
     test "doc defaults to empty string when not declared" do
-      assert SkirOut.Methods.with_explicit_number_method().doc == ""
+      assert Methods.with_explicit_number().doc == ""
     end
   end
 
@@ -55,11 +56,11 @@ defmodule MethodsTest do
 
   describe "true_ method" do
     test "name is True" do
-      assert SkirOut.Methods.true__method().name == "True"
+      assert Methods.true_().name == "True"
     end
 
     test "number" do
-      assert SkirOut.Methods.true__method().number == 78_901
+      assert Methods.true_().number == 78_901
     end
   end
 
@@ -69,7 +70,7 @@ defmodule MethodsTest do
 
   describe "method serializers" do
     test "request and response serializers are built" do
-      m = SkirOut.Methods.my_procedure_method()
+      m = Methods.my_procedure()
       assert %Skir.Serializer{} = m.request_serializer
       assert %Skir.Serializer{} = m.response_serializer
     end

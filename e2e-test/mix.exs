@@ -19,7 +19,9 @@ defmodule E2ETest.MixProject do
 
   defp deps do
     [
-      {:ex_skir, git: "https://github.com/AlexGx/ex_skir.git"} # tag: "0.1.0"
+      {:ex_skir, git: "https://github.com/AlexGx/ex_skir.git"},
+      {:dialyxir, "~> 1.4", only: :dev, runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 end

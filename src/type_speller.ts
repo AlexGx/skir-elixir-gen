@@ -1,4 +1,5 @@
 import { type RecordKey, type RecordLocation, type ResolvedType } from "skir-internal";
+import { toFieldName } from "./naming.js";
 
 export class TypeSpeller {
   constructor(
@@ -14,8 +15,17 @@ export class TypeSpeller {
       case "optional":
         return `{:optional, ${this.spell(type.other)}}`;
       
-      case "array":
+      // case "array":
+      //   return `{:array, ${this.spell(type.item)}}`;
+      case "array": {
+        if (type.key) {
+          const pathAtoms = type.key.path
+            .map((item) => `:${toFieldName(item.name.text)}`)
+            .join(", ");
+          return `{:array, ${this.spell(type.item)}, key: [${pathAtoms}]}`;
+        }
         return `{:array, ${this.spell(type.item)}}`;
+      }
       
       case "record": {
         const loc = this.recordMap.get(type.key);
@@ -30,11 +40,11 @@ export class TypeSpeller {
           : this.baseNamespace;
 
         // 2. Strip base utility filename suffix segments if present
-        if (targetNamespace.endsWith(".Structs")) {
-          targetNamespace = targetNamespace.slice(0, -8);
-        } else if (targetNamespace.endsWith(".Enums")) {
-          targetNamespace = targetNamespace.slice(0, -6);
-        }
+        // if (targetNamespace.endsWith(".Structs")) {
+        //   targetNamespace = targetNamespace.slice(0, -8);
+        // } else if (targetNamespace.endsWith(".Enums")) {
+        //   targetNamespace = targetNamespace.slice(0, -6);
+        // }
 
         // 3. Map the nested structural ancestors chain 
         const recordParts = loc.recordAncestors.map((r) => r.name.text);

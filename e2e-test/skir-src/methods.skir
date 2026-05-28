@@ -13,3 +13,5 @@ method WithExplicitNumber(
 method True(
   string
 ): string = 78901;
+
+const PI: float64 = 3.141592653589793;
