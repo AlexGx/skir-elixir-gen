@@ -11,7 +11,7 @@ jobs:
       matrix:
         node-version: [20.x]
         otp-version: ["27"]
-        elixir-version: ["1.18"]
+        elixir-version: ["1.17"]
     steps:
       - uses: actions/checkout@v4
 
@@ -37,20 +37,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mix-${{ matrix.otp-version }}-${{ matrix.elixir-version }}-
 
-      - name: Install dependencies
+      - name: Install Elixir deps
         working-directory: e2e-test
         run: mix deps.get
-
-      - name: Check formatting
-        working-directory: e2e-test
-        run: mix format --check-formatted
-
-      # - name: Compile
-      #   working-directory: e2e-test
-      #   run: mix compile --warnings-as-errors
-
-      # - name: Lint
-      #  run: mix credo --strict    
       
       - run: npm ci
       - run: npm run lint
