@@ -10,18 +10,45 @@ jobs:
     strategy:
       matrix:
         node-version: [20.x]
-        gleam-version: ["1"]
+        otp-version: ["27"]
+        elixir-version: ["1.18"]
     steps:
       - uses: actions/checkout@v4
+
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-      - name: Set up Gleam ${{ matrix.gleam-version }}
+          cache: npm
+
+      - name: Set up Elixir ${{ matrix.elixir-version }} / OTP ${{ matrix.otp-version }}
         uses: erlef/setup-beam@v1
         with:
-          gleam-version: ${{ matrix.gleam-version }}
-          otp-version: "27"
+          otp-version: ${{ matrix.otp-version }}
+          elixir-version: ${{ matrix.elixir-version }}
+
+      - name: Cache Mix deps and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ matrix.otp-version }}-${{ matrix.elixir-version }}-${{ hashFiles('mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-${{ matrix.otp-version }}-${{ matrix.elixir-version }}-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Check formatting
+        run: mix format --check-formatted
+
+      - name: Compile
+        run: mix compile --warnings-as-errors
+
+      # - name: Lint
+      #  run: mix credo --strict    
+      
       - run: npm ci
       - run: npm run lint
       - run: npm run build

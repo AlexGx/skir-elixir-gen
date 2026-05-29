@@ -1,4 +1,8 @@
-import { type RecordKey, type RecordLocation, type ResolvedType } from "skir-internal";
+import {
+  type RecordKey,
+  type RecordLocation,
+  type ResolvedType,
+} from "skir-internal";
 import { toFieldName } from "./naming.js";
 
 export class TypeSpeller {
@@ -11,12 +15,10 @@ export class TypeSpeller {
     switch (type.kind) {
       case "primitive":
         return `:${type.primitive}`;
-      
+
       case "optional":
         return `{:optional, ${this.spell(type.other)}}`;
-      
-      // case "array":
-      //   return `{:array, ${this.spell(type.item)}}`;
+
       case "array": {
         if (type.key) {
           const pathAtoms = type.key.path
@@ -26,36 +28,28 @@ export class TypeSpeller {
         }
         return `{:array, ${this.spell(type.item)}}`;
       }
-      
+
       case "record": {
         const loc = this.recordMap.get(type.key);
         if (!loc) {
           return ":unknown";
         }
 
-        // 1. Trace the destination path from the targeted record location
         const pathPrefix = this.derivePathPrefix(loc.modulePath);
-        let targetNamespace = pathPrefix 
-          ? `${this.baseNamespace}.${pathPrefix}` 
+        const targetNamespace = pathPrefix
+          ? `${this.baseNamespace}.${pathPrefix}`
           : this.baseNamespace;
 
-        // 2. Strip base utility filename suffix segments if present
-        // if (targetNamespace.endsWith(".Structs")) {
-        //   targetNamespace = targetNamespace.slice(0, -8);
-        // } else if (targetNamespace.endsWith(".Enums")) {
-        //   targetNamespace = targetNamespace.slice(0, -6);
-        // }
-
-        // 3. Map the nested structural ancestors chain 
+        // Map the nested structural ancestors chain
         const recordParts = loc.recordAncestors.map((r) => r.name.text);
         if (!recordParts.includes(loc.record.name.text)) {
           recordParts.push(loc.record.name.text);
         }
-        
-        // 4. Combine into the absolute Elixir module identifier path
+
+        // Combine into the absolute Elixir module identifier path
         return `${targetNamespace}.${recordParts.join(".")}`;
       }
-      
+
       default:
         return ":unknown";
     }
@@ -72,18 +66,18 @@ export class TypeSpeller {
       cleanPath = cleanPath.slice(0, -3);
     }
 
-    cleanPath = cleanPath.replace(/^[\./]+/, "");
+    cleanPath = cleanPath.replace(/^[./]+/, "");
     const segments = cleanPath.split("/").filter(Boolean);
 
     return segments
       .map((segment) => {
-        let sanitized = segment.replace(/[^a-zA-Z0-9_\-]/g, "");
+        let sanitized = segment.replace(/[^a-zA-Z0-9_-]/g, "");
 
         if (/^\d/.test(sanitized)) {
           sanitized = "Mod" + sanitized;
         }
 
-        const words = sanitized.split(/[_\-]/).filter(Boolean);
+        const words = sanitized.split(/[_-]/).filter(Boolean);
         return words
           .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
           .join("");

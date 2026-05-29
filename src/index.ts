@@ -84,8 +84,8 @@ class ElixirFileGenerator {
       );
     }
 
+    // Emit separate modules for Constants and Methods
     // if (constants.length) parts.push(this.emitConstants(constants, modulePath));
-
     // if (methods.length) parts.push(this.emitMethods(methods, modulePath));
 
     if (constants.length || methods.length) {
@@ -99,13 +99,13 @@ class ElixirFileGenerator {
 
   private emitStruct(loc: RecordLocation): string {
     const pathPrefix = this.derivePathPrefix(loc.modulePath);
-    let customizedNamespace = pathPrefix 
-      ? `${this.namespace}.${pathPrefix}` 
+    const customizedNamespace = pathPrefix
+      ? `${this.namespace}.${pathPrefix}`
       : this.namespace;
 
     const moduleName = getModuleName(loc, customizedNamespace);
     const { record } = loc;
-    
+
     const lines: string[] = [
       `defmodule ${moduleName} do`,
       this.moduleDocFalse(),
@@ -166,13 +166,13 @@ class ElixirFileGenerator {
 
   private emitEnum(loc: RecordLocation): string {
     const pathPrefix = this.derivePathPrefix(loc.modulePath);
-    let customizedNamespace = pathPrefix 
-      ? `${this.namespace}.${pathPrefix}` 
+    const customizedNamespace = pathPrefix
+      ? `${this.namespace}.${pathPrefix}`
       : this.namespace;
 
     const moduleName = getModuleName(loc, customizedNamespace);
     const { record } = loc;
-    
+
     const lines: string[] = [
       `defmodule ${moduleName} do`,
       this.moduleDocFalse(),
@@ -230,19 +230,23 @@ class ElixirFileGenerator {
     return lines.join("\n");
   }
 
-  private emitMethodsAndConstants(methods: readonly Method<false>[], constants: readonly Constant<false>[], modulePath: string): string {
+  private emitMethodsAndConstants(
+    methods: readonly Method<false>[],
+    constants: readonly Constant<false>[],
+    modulePath: string,
+  ): string {
     const pathPrefix = this.derivePathPrefix(modulePath);
-    let customizedNamespace = pathPrefix 
-      ? `${this.namespace}.${pathPrefix}` 
+    const customizedNamespace = pathPrefix
+      ? `${this.namespace}.${pathPrefix}`
       : this.namespace;
 
-    // module head
+    // Module head
     const lines: string[] = [
       `defmodule ${customizedNamespace} do`,
       this.moduleDocFalse(),
     ];
 
-    // constants
+    // Constants
     if (constants.length) {
       lines.push(...["  use Skir.Constants", ""]);
 
@@ -260,10 +264,10 @@ class ElixirFileGenerator {
       }
     }
 
-    // methods
+    // Methods
     if (methods.length) {
       if (constants.length) lines.push("");
-      
+
       lines.push(...["  use Skir.Methods", ""]);
 
       for (const method of methods) {
@@ -284,15 +288,19 @@ class ElixirFileGenerator {
       }
     }
 
-    // module end
+    // Module end
     lines.push("end\n");
     return lines.join("\n");
   }
 
-  private emitConstants(constants: readonly Constant<false>[], modulePath: string): string {
+  // Old approach
+  private emitConstants(
+    constants: readonly Constant<false>[],
+    modulePath: string,
+  ): string {
     const pathPrefix = this.derivePathPrefix(modulePath);
-    let customizedNamespace = pathPrefix 
-      ? `${this.namespace}.${pathPrefix}` 
+    const customizedNamespace = pathPrefix
+      ? `${this.namespace}.${pathPrefix}`
       : this.namespace;
 
     const lines: string[] = [
@@ -319,10 +327,14 @@ class ElixirFileGenerator {
     return lines.join("\n");
   }
 
-  private emitMethods(methods: readonly Method<false>[], modulePath: string): string {
+  // Old approach
+  private emitMethods(
+    methods: readonly Method<false>[],
+    modulePath: string,
+  ): string {
     const pathPrefix = this.derivePathPrefix(modulePath);
-    let customizedNamespace = pathPrefix 
-      ? `${this.namespace}.${pathPrefix}` 
+    const customizedNamespace = pathPrefix
+      ? `${this.namespace}.${pathPrefix}`
       : this.namespace;
 
     const lines: string[] = [
@@ -443,21 +455,22 @@ class ElixirFileGenerator {
 
   private isoToUTCSigil(iso: string): string {
     const d = new Date(iso);
-    const body = (() => {
-        if (Number.isNaN(d.getTime())) return iso;
-        else return d
-        .toISOString()
-        .replace("T", " ")
-        .replace(/\.000Z$/, "Z");
+    const body = ((): string => {
+      if (Number.isNaN(d.getTime())) return iso;
+      else
+        return d
+          .toISOString()
+          .replace("T", " ")
+          .replace(/\.000Z$/, "Z");
     })();
-    
+
     return `~U[${body}]`;
   }
 
   private structExpr(value: Value, loc: RecordLocation): string {
     const pathPrefix = this.derivePathPrefix(loc.modulePath);
-    const targetNamespace = pathPrefix 
-      ? `${this.namespace}.${pathPrefix}` 
+    const targetNamespace = pathPrefix
+      ? `${this.namespace}.${pathPrefix}`
       : this.namespace;
 
     const moduleName = getModuleName(loc, targetNamespace);
@@ -480,19 +493,12 @@ class ElixirFileGenerator {
       : `%${moduleName}{${parts.join(", ")}}`;
   }
 
-private enumExpr(value: Value, loc: RecordLocation): string {
-    // Trace the destination path from the targeted record location
-    const pathPrefix = this.derivePathPrefix(loc.modulePath);
-    let targetNamespace = pathPrefix 
-      ? `${this.namespace}.${pathPrefix}` 
-      : this.namespace;
-
+  private enumExpr(value: Value, loc: RecordLocation): string {
     // Extract the clean ancestors string to build the accurate module identifier
     const recordParts = loc.recordAncestors.map((r) => r.name.text);
     if (!recordParts.includes(loc.record.name.text)) {
       recordParts.push(loc.record.name.text);
     }
-    const moduleName = `${targetNamespace}.${recordParts.join(".")}`;
 
     // Evaluate value variants safely against the accurate moduleName identifier
     if (value.kind === "literal") {
@@ -587,18 +593,18 @@ private enumExpr(value: Value, loc: RecordLocation): string {
       cleanPath = cleanPath.slice(0, -3);
     }
 
-    cleanPath = cleanPath.replace(/^[\./]+/, "");
+    cleanPath = cleanPath.replace(/^[./]+/, "");
     const segments = cleanPath.split("/").filter(Boolean);
 
     return segments
       .map((segment) => {
-        let sanitized = segment.replace(/[^a-zA-Z0-9_\-]/g, "");
+        let sanitized = segment.replace(/[^a-zA-Z0-9_-]/g, "");
 
         if (/^\d/.test(sanitized)) {
           sanitized = "Mod" + sanitized;
         }
 
-        const words = sanitized.split(/[_\-]/).filter(Boolean);
+        const words = sanitized.split(/[_-]/).filter(Boolean);
         return words
           .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
           .join("");

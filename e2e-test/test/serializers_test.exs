@@ -104,7 +104,9 @@ defmodule Skir.BuiltinTest do
 
   describe "bool — type_descriptor" do
     test "is primitive bool" do
-      expected = ~s({\n  "type": {\n    "kind": "primitive",\n    "value": "bool"\n  },\n  "records": []\n})
+      expected =
+        ~s({\n  "type": {\n    "kind": "primitive",\n    "value": "bool"\n  },\n  "records": []\n})
+
       assert td_json(Builtin.bool()) == expected
     end
   end
@@ -194,7 +196,9 @@ defmodule Skir.BuiltinTest do
 
   describe "int32 — type_descriptor" do
     test "is primitive int32" do
-      expected = ~s({\n  "type": {\n    "kind": "primitive",\n    "value": "int32"\n  },\n  "records": []\n})
+      expected =
+        ~s({\n  "type": {\n    "kind": "primitive",\n    "value": "int32"\n  },\n  "records": []\n})
+
       assert td_json(Builtin.int32()) == expected
     end
   end
@@ -245,8 +249,16 @@ defmodule Skir.BuiltinTest do
 
     test "binary round-trip" do
       values = [
-        0, 1, 231, 232, 65_536, 2_147_483_647, 2_147_483_648,
-        9_007_199_254_740_991, -1, -2_147_483_648
+        0,
+        1,
+        231,
+        232,
+        65_536,
+        2_147_483_647,
+        2_147_483_648,
+        9_007_199_254_740_991,
+        -1,
+        -2_147_483_648
       ]
 
       for v <- values do
@@ -257,7 +269,9 @@ defmodule Skir.BuiltinTest do
 
   describe "int64 — type_descriptor" do
     test "is primitive int64" do
-      expected = ~s({\n  "type": {\n    "kind": "primitive",\n    "value": "int64"\n  },\n  "records": []\n})
+      expected =
+        ~s({\n  "type": {\n    "kind": "primitive",\n    "value": "int64"\n  },\n  "records": []\n})
+
       assert td_json(Builtin.int64()) == expected
     end
   end
@@ -326,7 +340,9 @@ defmodule Skir.BuiltinTest do
 
   describe "hash64 — type_descriptor" do
     test "is primitive hash64" do
-      expected = ~s({\n  "type": {\n    "kind": "primitive",\n    "value": "hash64"\n  },\n  "records": []\n})
+      expected =
+        ~s({\n  "type": {\n    "kind": "primitive",\n    "value": "hash64"\n  },\n  "records": []\n})
+
       assert td_json(Builtin.hash64()) == expected
     end
   end
@@ -622,7 +638,9 @@ defmodule Skir.BuiltinTest do
 
   describe "string — type_descriptor" do
     test "is primitive string" do
-      expected = ~s({\n  "type": {\n    "kind": "primitive",\n    "value": "string"\n  },\n  "records": []\n})
+      expected =
+        ~s({\n  "type": {\n    "kind": "primitive",\n    "value": "string"\n  },\n  "records": []\n})
+
       assert td_json(Builtin.string()) == expected
     end
   end
@@ -726,7 +744,9 @@ defmodule Skir.BuiltinTest do
 
   describe "bytes — type_descriptor" do
     test "is primitive bytes" do
-      expected = ~s({\n  "type": {\n    "kind": "primitive",\n    "value": "bytes"\n  },\n  "records": []\n})
+      expected =
+        ~s({\n  "type": {\n    "kind": "primitive",\n    "value": "bytes"\n  },\n  "records": []\n})
+
       assert td_json(Builtin.bytes()) == expected
     end
   end

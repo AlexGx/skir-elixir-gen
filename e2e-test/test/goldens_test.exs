@@ -12,29 +12,36 @@ defmodule GoldensTest do
   # EvaluatedValue — type-erased bundle of a deserialised value and its serializer
   # =============================================================================
 
-  defp make_ev(value, adapter) do
+  defp make_ev(value, adapter, mod \\ nil) do
     %{
       to_bytes: fn -> Serializer.encode_binary(ser(adapter), value) end,
       to_dense_json: fn -> Serializer.encode_json(ser(adapter), value, :dense) end,
       to_readable_json: fn -> Serializer.encode_json(ser(adapter), value, :readable) end,
       type_descriptor_json: fn ->
-        TypeDescriptor.to_json(adapter.type_descriptor.())
+        td =
+          if mod do
+            mod.__skir_type_descriptor__()
+          else
+            adapter.type_descriptor.()
+          end
+
+        TypeDescriptor.to_json(td)
       end,
       from_json_keep: fn json ->
         case Serializer.decode_json(ser(adapter), json, keep: true) do
-          {:ok, v} -> {:ok, make_ev(v, adapter)}
+          {:ok, v} -> {:ok, make_ev(v, adapter, mod)}
           {:error, e} -> {:error, inspect(e)}
         end
       end,
       from_json_drop: fn json ->
         case Serializer.decode_json(ser(adapter), json) do
-          {:ok, v} -> {:ok, make_ev(v, adapter)}
+          {:ok, v} -> {:ok, make_ev(v, adapter, mod)}
           {:error, e} -> {:error, inspect(e)}
         end
       end,
       from_bytes_drop: fn bytes ->
         case Serializer.decode_binary(ser(adapter), bytes) do
-          {:ok, v} -> {:ok, make_ev(v, adapter)}
+          {:ok, v} -> {:ok, make_ev(v, adapter, mod)}
           {:error, e} -> {:error, inspect(e)}
         end
       end
@@ -42,7 +49,7 @@ defmodule GoldensTest do
   end
 
   defp ser(adapter), do: %Serializer{type_adapter: adapter, module: nil}
-  defp mod_adapter(mod), do: mod.__skir_serializer__().type_adapter
+  defp mod_adapter(mod), do: Skir.Struct.Compiler.type_adapter_for(mod)
 
   # =============================================================================
   # Helpers
@@ -92,28 +99,76 @@ defmodule GoldensTest do
   defp evaluate_typed_value({:ints, v}), do: {:ok, make_ev(v, Builtin.list(Builtin.int32()))}
 
   defp evaluate_typed_value({:point, v}),
-    do: {:ok, make_ev(v, mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.Point))}
+    do:
+      {:ok,
+       make_ev(
+         v,
+         mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.Point),
+         SkirOut.Gepheum.SkirGoldenTests.Goldens.Point
+       )}
 
   defp evaluate_typed_value({:color, v}),
-    do: {:ok, make_ev(v, mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.Color))}
+    do:
+      {:ok,
+       make_ev(
+         v,
+         mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.Color),
+         SkirOut.Gepheum.SkirGoldenTests.Goldens.Color
+       )}
 
   defp evaluate_typed_value({:my_enum, v}),
-    do: {:ok, make_ev(v, mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.MyEnum))}
+    do:
+      {:ok,
+       make_ev(
+         v,
+         mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.MyEnum),
+         SkirOut.Gepheum.SkirGoldenTests.Goldens.MyEnum
+       )}
 
   defp evaluate_typed_value({:enum_a, v}),
-    do: {:ok, make_ev(v, mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.EnumA))}
+    do:
+      {:ok,
+       make_ev(
+         v,
+         mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.EnumA),
+         SkirOut.Gepheum.SkirGoldenTests.Goldens.EnumA
+       )}
 
   defp evaluate_typed_value({:enum_b, v}),
-    do: {:ok, make_ev(v, mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.EnumB))}
+    do:
+      {:ok,
+       make_ev(
+         v,
+         mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.EnumB),
+         SkirOut.Gepheum.SkirGoldenTests.Goldens.EnumB
+       )}
 
   defp evaluate_typed_value({:keyed_arrays, v}),
-    do: {:ok, make_ev(v, mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.KeyedArrays))}
+    do:
+      {:ok,
+       make_ev(
+         v,
+         mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.KeyedArrays),
+         SkirOut.Gepheum.SkirGoldenTests.Goldens.KeyedArrays
+       )}
 
   defp evaluate_typed_value({:rec_struct, v}),
-    do: {:ok, make_ev(v, mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.RecStruct))}
+    do:
+      {:ok,
+       make_ev(
+         v,
+         mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.RecStruct),
+         SkirOut.Gepheum.SkirGoldenTests.Goldens.RecStruct
+       )}
 
   defp evaluate_typed_value({:rec_enum, v}),
-    do: {:ok, make_ev(v, mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.RecEnum))}
+    do:
+      {:ok,
+       make_ev(
+         v,
+         mod_adapter(SkirOut.Gepheum.SkirGoldenTests.Goldens.RecEnum),
+         SkirOut.Gepheum.SkirGoldenTests.Goldens.RecEnum
+       )}
 
   defp evaluate_typed_value({:round_trip_dense_json, inner}) do
     with {:ok, ev} <- evaluate_typed_value(inner), do: ev.from_json_drop.(ev.to_dense_json.())
@@ -177,7 +232,7 @@ defmodule GoldensTest do
             opts = if atom_to_string(unquote(tag)) =~ "keep", do: [keep: true], else: []
 
             case Serializer.decode_json(ser(mod_adapter(unquote(mod))), json, opts) do
-              {:ok, v} -> {:ok, make_ev(v, mod_adapter(unquote(mod)))}
+              {:ok, v} -> {:ok, make_ev(v, mod_adapter(unquote(mod)), unquote(mod))}
               {:error, e} -> {:error, unquote(label) <> ": " <> inspect(e)}
             end
           end
@@ -187,7 +242,7 @@ defmodule GoldensTest do
             opts = if atom_to_string(unquote(tag)) =~ "keep", do: [keep: true], else: []
 
             case Serializer.decode_binary(ser(mod_adapter(unquote(mod))), bytes, opts) do
-              {:ok, v} -> {:ok, make_ev(v, mod_adapter(unquote(mod)))}
+              {:ok, v} -> {:ok, make_ev(v, mod_adapter(unquote(mod)), unquote(mod))}
               {:error, e} -> {:error, unquote(label) <> ": " <> inspect(e)}
             end
           end
